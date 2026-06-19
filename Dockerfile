@@ -1,54 +1,42 @@
-FROM debian:bookworm-slim
-ENV DEBIAN_FRONTEND=noninteractive
+FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y \
-    openssh-server wget curl unzip vim python3 \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive \
+    NTFY_TOPIC=rairu-devculture67 \
+    BORE_SERVER=bore.pub \
+    ROOT_PASS=craxid
 
-# Install bore (TCP tunnel gratis tanpa akun)
-RUN wget -q https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz -O /tmp/bore.tar.gz \
-    && tar -xzf /tmp/bore.tar.gz -C /usr/local/bin/ \
-    && chmod +x /usr/local/bin/bore \
-    && rm /tmp/bore.tar.gz
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates openssh-server curl python3 vim sudo \
+        net-tools wget htop git unzip iproute2 iputils-ping procps passwd && \
+    update-ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Setup SSH
-RUN mkdir -p /run/sshd \
-    && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
-    && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
-    && echo root:craxid | chpasswd \
-    && ssh-keygen -A
+# Install bore v0.5.0
+RUN curl -fsSL "https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz" \
+        -o /tmp/bore.tar.gz && \
+    tar -xzf /tmp/bore.tar.gz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/bore && \
+    rm /tmp/bore.tar.gz && \
+    bore --version
 
-# Entrypoint
-RUN printf '#!/bin/bash\n\
-NTFY_TOPIC="rairu-devculture67"\n\
-echo "Starting SSH server..."\n\
-/usr/sbin/sshd\n\
-echo "Starting bore tunnel..."\n\
-bore local 22 --to bore.pub &\n\
-BORE_PID=$!\n\
-sleep 5\n\
-# Cek apakah bore berjalan\n\
-if kill -0 $BORE_PID 2>/dev/null; then\n\
-  echo "========================================"\n\
-  echo "VPS Railway AKTIF via bore.pub!"\n\
-  echo "Cek log Railway untuk port number"\n\
-  echo "Command: ssh root@bore.pub -p <PORT>"\n\
-  echo "Password: craxid"\n\
-  echo "========================================"\n\
-  curl -s -X POST "https://ntfy.sh/$NTFY_TOPIC" \\\n\
-    -H "Title: VPS Railway Aktif" \\\n\
-    -H "Priority: high" \\\n\
-    -H "Tags: computer,key" \\\n\
-    -d "Cek log Railway untuk port. ssh root@bore.pub -p <PORT> | Password: craxid" > /dev/null 2>&1\n\
-else\n\
-  echo "ERROR: bore gagal."\n\
-  curl -s -X POST "https://ntfy.sh/$NTFY_TOPIC" \\\n\
-    -H "Title: VPS ERROR" \\\n\
-    -H "Priority: urgent" \\\n\
-    -d "bore tunnel gagal. Cek log Railway." > /dev/null 2>&1\n\
-fi\n\
-wait $BORE_PID\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
+RUN mkdir -p /run/sshd && \
+    echo "root:craxid" | chpasswd && \
+    ssh-keygen -A && \
+    sed -i \
+      -e 's/#PermitRootLogin.*/PermitRootLogin yes/' \
+      -e 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' \
+      -e 's/#PasswordAuthentication yes/PasswordAuthentication yes/' \
+      -e 's/PasswordAuthentication no/PasswordAuthentication yes/' \
+      -e 's/#ClientAliveInterval.*/ClientAliveInterval 60/' \
+      -e 's/#ClientAliveCountMax.*/ClientAliveCountMax 10/' \
+      /etc/ssh/sshd_config
 
-EXPOSE 22
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 22 80 443 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD pgrep sshd > /dev/null || exit 1
+
 CMD ["/entrypoint.sh"]
