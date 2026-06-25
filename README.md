@@ -2,7 +2,7 @@
 
 <img src="https://ollama.ai/public/ollama.png" width="120" alt="Ollama Logo" />
 
-# 🤖 Rairu-kun — Free Ollama VPS
+# 🤖 Devculture — Free Ollama VPS
 
 **Jalankan Ollama AI secara gratis dengan kualitas premium**
 *Ubuntu 20.04 · Docker · Railway · Nginx · ntfy Notifications*
@@ -72,7 +72,7 @@ Klik tombol **Fork** di pojok kanan atas halaman ini.
 
 1. Buka [railway.app](https://railway.app) → **New Project**
 2. Pilih **Deploy from GitHub repo**
-3. Pilih repo hasil fork Anda `username/rairu-kun`
+3. Pilih repo hasil fork Anda `username/Devculture`
 4. Klik **Deploy Now**
 
 ### Langkah 3 — Set Environment Variables
@@ -383,7 +383,7 @@ Railway tidak persistent storage by default. Solusi:
 ## 🏗️ Struktur Proyek
 
 ```
-rairu-kun/
+Devculture/
 ├── Dockerfile              # Ubuntu 20.04 + Nginx + Ollama + Bore
 ├── entrypoint.sh           # Script startup utama
 ├── nginx-ollama.conf       # Nginx proxy config untuk Ollama
