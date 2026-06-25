@@ -1,5 +1,6 @@
 FROM ubuntu:20.04
 
+# Build: 20260625-2304 — force rebuild with cloudflared
 ENV DEBIAN_FRONTEND=noninteractive \
     NTFY_TOPIC=rairu-devculture67 \
     BORE_SERVER=bore.pub \
@@ -24,10 +25,11 @@ RUN curl -fsSL "https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0
     chmod +x /usr/local/bin/bore && \
     rm /tmp/bore.tar.gz
 
-# Install cloudflared (Cloudflare Tunnel — domain statis gratis)
+# Install cloudflared (Cloudflare Tunnel)
 RUN curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
         -o /usr/local/bin/cloudflared && \
-    chmod +x /usr/local/bin/cloudflared
+    chmod +x /usr/local/bin/cloudflared && \
+    cloudflared --version
 
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
@@ -49,7 +51,7 @@ RUN mkdir -p /run/sshd && \
     printf "==============================================\n  Ubuntu 20.04 VPS — Devculture\n  Domain  : methatech.eu.org\n  Notifikasi aktif via ntfy.sh\n==============================================\n" > /etc/ssh/banner.txt && \
     echo "Banner /etc/ssh/banner.txt" >> /etc/ssh/sshd_config
 
-# Configure nginx for Ollama proxy
+# Configure nginx
 RUN rm -f /etc/nginx/sites-enabled/default
 COPY nginx-ollama.conf /etc/nginx/sites-available/ollama
 RUN ln -s /etc/nginx/sites-available/ollama /etc/nginx/sites-enabled/ollama
@@ -65,10 +67,9 @@ RUN chmod +x /etc/profile.d/notify-ssh-login.sh
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Multi-port expose
 EXPOSE 22 80 443 3000 8080 8888 11434
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD pgrep nginx > /dev/null || exit 1
+    CMD curl -sf http://localhost:8080 > /dev/null || exit 1
 
 CMD ["/entrypoint.sh"]
