@@ -41,7 +41,7 @@ RUN mkdir -p /run/sshd && \
       -e 's/#MaxSessions.*/MaxSessions 20/' \
       -e 's/#TCPKeepAlive.*/TCPKeepAlive yes/' \
       /etc/ssh/sshd_config && \
-    printf "==============================================\n  Ubuntu 20.04 VPS — devculture67/rairu-kun\n  Notifikasi aktif via ntfy.sh\n==============================================\n" > /etc/ssh/banner.txt && \
+    printf "==============================================\n  Ubuntu 20.04 VPS — Devculture\n  Notifikasi aktif via ntfy.sh\n==============================================\n" > /etc/ssh/banner.txt && \
     echo "Banner /etc/ssh/banner.txt" >> /etc/ssh/sshd_config
 
 # Configure nginx for Ollama proxy
