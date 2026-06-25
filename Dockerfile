@@ -24,6 +24,11 @@ RUN curl -fsSL "https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0
     chmod +x /usr/local/bin/bore && \
     rm /tmp/bore.tar.gz
 
+# Install cloudflared (Cloudflare Tunnel — domain statis gratis)
+RUN curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+        -o /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared
+
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
@@ -41,7 +46,7 @@ RUN mkdir -p /run/sshd && \
       -e 's/#MaxSessions.*/MaxSessions 20/' \
       -e 's/#TCPKeepAlive.*/TCPKeepAlive yes/' \
       /etc/ssh/sshd_config && \
-    printf "==============================================\n  Ubuntu 20.04 VPS — Devculture\n  Notifikasi aktif via ntfy.sh\n==============================================\n" > /etc/ssh/banner.txt && \
+    printf "==============================================\n  Ubuntu 20.04 VPS — Devculture\n  Domain  : methatech.eu.org\n  Notifikasi aktif via ntfy.sh\n==============================================\n" > /etc/ssh/banner.txt && \
     echo "Banner /etc/ssh/banner.txt" >> /etc/ssh/sshd_config
 
 # Configure nginx for Ollama proxy
