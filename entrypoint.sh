@@ -127,7 +127,7 @@ ssh_watchdog() {
     sleep 60
     if ! pgrep sshd > /dev/null; then
       notify "🚨 SSH MATI!" \
-        "SSH daemon tidak berjalan!\nMencoba restart...\nVPS: devculture67/rairu-kun" \
+        "SSH daemon tidak berjalan!\nMencoba restart...\nVPS: Devculture" \
         "urgent" "rotating_light,sos"
       /usr/sbin/sshd && log "✅ SSH restarted by watchdog"
       notify "🔄 SSH Direstart" "SSH daemon berhasil direstart." "high" "white_check_mark"
@@ -143,7 +143,7 @@ nginx_watchdog() {
     sleep 60
     if ! pgrep nginx > /dev/null; then
       notify "🚨 Nginx MATI!" \
-        "Nginx tidak berjalan! Mencoba restart...\nVPS: devculture67/rairu-kun" \
+        "Nginx tidak berjalan! Mencoba restart...\nVPS: Devculture" \
         "urgent" "rotating_light"
       nginx && log "✅ Nginx restarted by watchdog"
       notify "🔄 Nginx Direstart" "Nginx berhasil direstart." "high" "white_check_mark"
@@ -160,7 +160,7 @@ ollama_watchdog() {
     sleep 30
     if ! pgrep ollama > /dev/null; then
       notify "🚨 Ollama MATI!" \
-        "Ollama service tidak berjalan!\nMencoba restart...\nVPS: devculture67/rairu-kun" \
+        "Ollama service tidak berjalan!\nMencoba restart...\nVPS: Devculture" \
         "urgent" "robot_face,rotating_light"
       ollama serve > /tmp/ollama.log 2>&1 &
       sleep 10
@@ -183,7 +183,7 @@ ollama_watchdog() {
 # MAIN
 # =============================================
 log "============================================="
-log "  Ubuntu 20.04 VPS — devculture67/rairu-kun"
+log "  Ubuntu 20.04 VPS — Devculture"
 log "  Ports : 22 80 443 3000 8080 8888 11434"
 log "  ntfy  : $NTFY_TOPIC"
 log "  Start : $START_TIME"
