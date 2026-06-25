@@ -1,0 +1,76 @@
+name: 🔄 Weekly Ollama Update
+
+on:
+  schedule:
+    # Setiap Senin jam 17:00 UTC = 00:00 WIB
+    - cron: '0 17 * * 1'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model yang ingin di-update (kosongkan = default dari env)'
+        required: false
+        default: ''
+
+jobs:
+  update:
+    name: Update Model & Redeploy Railway
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📲 Notify ntfy — Update Dimulai
+        run: |
+          curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
+            -H "Title: 🔄 Auto-Update Mingguan Dimulai" \
+            -H "Priority: default" \
+            -H "Tags: arrows_counterclockwise,robot_face" \
+            -d "Update mingguan Devculture VPS dimulai!
+
+          🕐 Waktu   : $(date '+%Y-%m-%d %H:%M:%S UTC')
+          📦 Action  : Redeploy Railway → pull model terbaru
+          
+          VPS akan restart sebentar, lalu model update otomatis."
+
+      - name: 🚀 Trigger Railway Redeploy
+        run: |
+          RESULT=$(curl -s -X POST "https://backboard.railway.app/graphql/v2" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceDeploy(serviceId: \"eca17658-34de-42d9-a578-655bfbfb9811\", environmentId: \"1a550fb3-fd9f-49af-bc9d-ae3e48bbf473\") }"}')
+          
+          echo "Railway response: $RESULT"
+          
+          if echo "$RESULT" | grep -q '"serviceInstanceDeploy":true'; then
+            echo "✅ Railway redeploy triggered!"
+          else
+            echo "❌ Railway redeploy failed"
+            exit 1
+          fi
+
+      - name: ✅ Notify ntfy — Update Berhasil
+        if: success()
+        run: |
+          curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
+            -H "Title: ✅ Auto-Update Berhasil!" \
+            -H "Priority: default" \
+            -H "Tags: white_check_mark,robot_face" \
+            -d "Railway redeploy berhasil di-trigger!
+
+          🔄 Container akan restart dalam beberapa menit
+          ⬇️ Model Ollama akan di-update ke versi terbaru
+          📲 Cek notifikasi berikutnya saat VPS online kembali
+
+          🕐 $(date '+%Y-%m-%d %H:%M:%S UTC')"
+
+      - name: ❌ Notify ntfy — Update Gagal
+        if: failure()
+        run: |
+          curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
+            -H "Title: ❌ Auto-Update GAGAL" \
+            -H "Priority: high" \
+            -H "Tags: x,rotating_light" \
+            -d "Weekly update gagal!
+
+          Cek GitHub Actions untuk detail error.
+          URL: https://github.com/devculture67/rairu-kun/actions
+
+          🕐 $(date '+%Y-%m-%d %H:%M:%S UTC')"
