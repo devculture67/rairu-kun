@@ -15,13 +15,21 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🚀 Deploy to Railway
-        uses: bervProject/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: vps
+      - name: 🚀 Trigger Railway Redeploy
+        run: |
+          RESULT=$(curl -s -X POST "https://backboard.railway.app/graphql/v2" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceDeploy(serviceId: \"eca17658-34de-42d9-a578-655bfbfb9811\", environmentId: \"1a550fb3-fd9f-49af-bc9d-ae3e48bbf473\") }"}')
+          echo "Response: $RESULT"
+          if echo "$RESULT" | grep -q '"serviceInstanceDeploy":true'; then
+            echo "✅ Railway redeploy triggered!"
+          else
+            echo "❌ Failed: $RESULT"
+            exit 1
+          fi
 
-      - name: ✅ Notify ntfy — Deploy Success
+      - name: ✅ Notify ntfy — Deploy Berhasil
         if: success()
         run: |
           curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
@@ -29,13 +37,12 @@ jobs:
             -H "Priority: high" \
             -H "Tags: white_check_mark,rocket" \
             -d "Branch Devculture berhasil di-deploy ke Railway!
-          
+
           📦 Commit : ${{ github.sha }}
           👤 Author : ${{ github.actor }}
-          💬 Message: ${{ github.event.head_commit.message }}
-          🕐 Waktu  : $(date '+%Y-%m-%d %H:%M:%S')"
+          💬 Message: ${{ github.event.head_commit.message }}"
 
-      - name: ❌ Notify ntfy — Deploy Failed
+      - name: ❌ Notify ntfy — Deploy Gagal
         if: failure()
         run: |
           curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
@@ -43,9 +50,8 @@ jobs:
             -H "Priority: urgent" \
             -H "Tags: x,rotating_light" \
             -d "Deploy ke Railway GAGAL!
-          
+
           📦 Commit : ${{ github.sha }}
           👤 Author : ${{ github.actor }}
-          💬 Message: ${{ github.event.head_commit.message }}
-          
-          ➡️ Cek GitHub Actions untuk detail error."
+
+          Cek: https://github.com/devculture67/rairu-kun/actions"
