@@ -3,11 +3,15 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive \
     NTFY_TOPIC=rairu-devculture67 \
     BORE_SERVER=bore.pub \
-    ROOT_PASS=craxid
+    ROOT_PASS=craxid \
+    TZ=Asia/Jakarta
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates openssh-server curl python3 vim sudo \
-        net-tools wget htop git unzip iproute2 iputils-ping procps passwd && \
+        ca-certificates openssh-server curl python3 \
+        vim nano sudo net-tools wget htop git unzip \
+        iproute2 iputils-ping procps passwd tmux screen \
+        lsof dnsutils jq tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     update-ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -19,6 +23,7 @@ RUN curl -fsSL "https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0
     rm /tmp/bore.tar.gz && \
     bore --version
 
+# Configure SSH
 RUN mkdir -p /run/sshd && \
     echo "root:craxid" | chpasswd && \
     ssh-keygen -A && \
@@ -29,12 +34,21 @@ RUN mkdir -p /run/sshd && \
       -e 's/PasswordAuthentication no/PasswordAuthentication yes/' \
       -e 's/#ClientAliveInterval.*/ClientAliveInterval 60/' \
       -e 's/#ClientAliveCountMax.*/ClientAliveCountMax 10/' \
-      /etc/ssh/sshd_config
+      -e 's/#MaxSessions.*/MaxSessions 20/' \
+      -e 's/#TCPKeepAlive.*/TCPKeepAlive yes/' \
+      /etc/ssh/sshd_config && \
+    printf "==============================================\n  Ubuntu 20.04 VPS — devculture67/rairu-kun\n  Notifikasi aktif via ntfy.sh/${NTFY_TOPIC}\n==============================================\n" > /etc/ssh/banner.txt && \
+    echo "Banner /etc/ssh/banner.txt" >> /etc/ssh/sshd_config
+
+# SSH login notification via profile.d
+COPY notify-ssh-login.sh /etc/profile.d/notify-ssh-login.sh
+RUN chmod +x /etc/profile.d/notify-ssh-login.sh
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 22 80 443 8080
+# Multi-port expose
+EXPOSE 22 80 443 3000 8080 8888
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
     CMD pgrep sshd > /dev/null || exit 1
