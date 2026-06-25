@@ -1,0 +1,51 @@
+name: 🚀 Deploy to Railway
+
+on:
+  push:
+    branches:
+      - Devculture
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy — Devculture → Railway
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Railway
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: vps
+
+      - name: ✅ Notify ntfy — Deploy Success
+        if: success()
+        run: |
+          curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
+            -H "Title: ✅ Deploy Berhasil — Devculture" \
+            -H "Priority: high" \
+            -H "Tags: white_check_mark,rocket" \
+            -d "Branch Devculture berhasil di-deploy ke Railway!
+          
+          📦 Commit : ${{ github.sha }}
+          👤 Author : ${{ github.actor }}
+          💬 Message: ${{ github.event.head_commit.message }}
+          🕐 Waktu  : $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: ❌ Notify ntfy — Deploy Failed
+        if: failure()
+        run: |
+          curl -s -X POST "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" \
+            -H "Title: ❌ Deploy GAGAL — Devculture" \
+            -H "Priority: urgent" \
+            -H "Tags: x,rotating_light" \
+            -d "Deploy ke Railway GAGAL!
+          
+          📦 Commit : ${{ github.sha }}
+          👤 Author : ${{ github.actor }}
+          💬 Message: ${{ github.event.head_commit.message }}
+          
+          ➡️ Cek GitHub Actions untuk detail error."
