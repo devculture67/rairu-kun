@@ -3,7 +3,6 @@
 NTFY_TOPIC="${NTFY_TOPIC:-rairu-devculture67}"
 BORE_SERVER="${BORE_SERVER:-bore.pub}"
 ROOT_PASS="${ROOT_PASS:-craxid}"
-# Default model: smollm2 (270MB) — paling ringan, gratis
 AUTO_PULL_MODEL="${AUTO_PULL_MODEL:-smollm2}"
 START_TIME=$(date '+%Y-%m-%d %H:%M:%S WIB')
 
@@ -64,10 +63,8 @@ update_summary() {
   local P80=$(cat /tmp/port_80.txt 2>/dev/null)
   local P443=$(cat /tmp/port_443.txt 2>/dev/null)
   local P3000=$(cat /tmp/port_3000.txt 2>/dev/null)
-  local P8080=$(cat /tmp/port_8080.txt 2>/dev/null)
-  local P8888=$(cat /tmp/port_8888.txt 2>/dev/null)
   local UPTIME=$(uptime -p 2>/dev/null || echo 'baru start')
-  local MEM=$(free -m 2>/dev/null | awk '/Mem:/{printf "%dMB / %dMB", $3, $2}' || echo 'n/a')
+  local MEM=$(free -m 2>/dev/null | awk '/Mem:/{printf "%dMB/%dMB", $3, $2}' || echo 'n/a')
   local DISK=$(df -h / 2>/dev/null | awk 'NR==2{printf "%s/%s(%s)", $3,$2,$5}' || echo 'n/a')
   local IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo 'n/a')
   local MODELS=$(ollama list 2>/dev/null | tail -n +2 | awk '{print "  • "$1}' | head -5 || echo '  (belum ada)')
@@ -81,8 +78,6 @@ update_summary() {
 🤖 API      : http://bore.pub:${P80:-pending}/api/
 🔐 HTTPS    : bore.pub:${P443:-pending}
 🚀 Port 3000: bore.pub:${P3000:-pending}
-🔧 Port 8080: bore.pub:${P8080:-pending}
-📡 Port 8888: bore.pub:${P8888:-pending}
 
 🤖 Model Ollama:
 ${MODELS}
@@ -97,66 +92,80 @@ ${MODELS}
 }
 
 # =============================================
-# Auto-pull model Ollama (gratis, ringan)
+# Auto-pull + auto-update model Ollama
 # =============================================
 ollama_auto_pull() {
   local model="${AUTO_PULL_MODEL:-smollm2}"
-  log "⏳ Menunggu Ollama siap sebelum pull model..."
+  log "⏳ Menunggu Ollama siap sebelum pull/update model..."
 
-  # Tunggu Ollama benar-benar ready (max 60 detik)
   local ready=false
   for i in $(seq 1 30); do
     sleep 2
     if curl -s --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; then
-      ready=true
-      break
+      ready=true; break
     fi
   done
 
   if [ "$ready" = false ]; then
-    log "⚠️ Ollama belum ready setelah 60s, skip auto-pull"
     notify "⚠️ Auto-Pull Ditunda" \
-      "Ollama belum ready.\nPull manual via SSH:\n  ollama pull $model" \
-      "low" "warning,robot_face"
+      "Ollama belum ready setelah 60s.\nPull manual:\n  ollama pull $model" "low" "warning,robot_face"
     return
   fi
 
-  # Cek apakah model sudah ada
+  # Cek apakah ini update (model sudah ada) atau pull baru
   if ollama list 2>/dev/null | grep -q "^$model"; then
-    log "✅ Model $model sudah ada, skip pull"
-    notify "🤖 Model Sudah Ada" \
-      "Model '$model' sudah tersedia!\nLangsung bisa chat di Web UI." \
-      "low" "robot_face,white_check_mark"
-    return
-  fi
+    log "🔄 Model $model sudah ada, update ke versi terbaru..."
+    notify "🔄 Update Model..." \
+      "Memperbarui '$model' ke versi terbaru...\nIni mungkin butuh beberapa menit." \
+      "low" "arrows_counterclockwise,robot_face"
+    IS_UPDATE=true
+  else
+    log "⬇️ Pull model baru: $model"
+    notify "⬇️ Mengunduh Model AI..." \
+      "Auto-pull: $model
 
-  # Mulai pull
-  log "⬇️ Pulling model: $model"
-  notify "⬇️ Mengunduh Model AI..." \
-    "Auto-pull: $model\n\nModel ini gratis & ringan:\n• smollm2 = 270MB\n• tinyllama = 637MB\n• phi3 = 2.3GB\n\nProses berjalan di background.\nAkan ada notif saat selesai 🎉" \
-    "default" "robot_face,hourglass"
+Model gratis tersedia:
+• smollm2   = 270 MB (default)
+• tinyllama = 637 MB
+• gemma:2b  = 1.4 GB
+• phi3      = 2.3 GB (recommended)
+
+Proses berjalan di background.
+Notif akan masuk saat selesai 🎉" \
+      "default" "robot_face,hourglass"
+    IS_UPDATE=false
+  fi
 
   if ollama pull "$model" >> /tmp/ollama-pull.log 2>&1; then
-    log "✅ Model $model berhasil di-pull"
     local SIZE=$(ollama list 2>/dev/null | grep "^$model" | awk '{print $3, $4}')
-    notify "✅ Model AI Siap Dipakai!" \
-      "Model '$model' berhasil diunduh! 🎉
+    if [ "$IS_UPDATE" = true ]; then
+      notify "✅ Model Berhasil Di-Update!" \
+        "Model '$model' sudah versi terbaru! 🎉
 
-📦 Ukuran : ${SIZE:-'lihat di ollama list'}
-🌐 Chat   : buka bore.pub:80 di browser
+📦 Ukuran : ${SIZE:-'lihat ollama list'}
+🌐 Chat   : buka bore.pub di browser
 💬 SSH    : ollama run $model
 
-Model lain bisa di-pull via SSH:
+Update berikutnya: Senin depan (otomatis)" \
+        "default" "robot_face,white_check_mark,arrows_counterclockwise"
+    else
+      notify "✅ Model AI Siap Dipakai!" \
+        "Model '$model' berhasil diunduh! 🎉
+
+📦 Ukuran : ${SIZE:-'lihat ollama list'}
+🌐 Chat   : buka bore.pub di browser
+💬 SSH    : ollama run $model
+
+Pull model lain (SSH):
   ollama pull tinyllama  (637MB)
   ollama pull phi3       (2.3GB)
   ollama pull mistral    (4.1GB)" \
-      "high" "robot_face,white_check_mark,tada"
-    # Kirim ulang summary dengan model terbaru
+        "high" "robot_face,white_check_mark,tada"
+    fi
     update_summary
   else
-    log "❌ Gagal pull model $model"
-    notify "❌ Pull Model Gagal" \
-      "Gagal download '$model'.\nLog: /tmp/ollama-pull.log\n$(tail -3 /tmp/ollama-pull.log 2>/dev/null)\n\nCoba manual via SSH:\n  ollama pull tinyllama" \
+    notify "❌ Pull/Update Model Gagal" \
+      "Gagal download '$model'\nLog: $(tail -3 /tmp/ollama-pull.log 2>/dev/null)\n\nCoba manual:\n  ollama pull $model" \
       "high" "warning,robot_face"
   fi
 }
@@ -177,7 +186,7 @@ monitor_loop() {
     local DISK=$(df -h / 2>/dev/null | awk 'NR==2{print $5}' || echo 'n/a')
     local OLLAMA_STATUS="❌ Mati"
     pgrep ollama > /dev/null && OLLAMA_STATUS="✅ Aktif"
-    local MODELS=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ', ' | sed 's/,$//')
+    local MODELS=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ',' | sed 's/,$//')
     notify "📊 Status Devculture VPS #${check}" \
       "⏰ Uptime  : $UPTIME\n💾 RAM     : $MEM\n⚡ Load    : $LOAD\n💽 Disk    : $DISK\n🤖 Ollama  : $OLLAMA_STATUS\n📦 Model   : ${MODELS:-(none)}\n🔑 SSH     : bore.pub:$P22" \
       "min" "bar_chart,clock4"
@@ -191,8 +200,8 @@ ssh_watchdog() {
   while true; do
     sleep 60
     if ! pgrep sshd > /dev/null; then
-      notify "🚨 SSH MATI!" "SSH crash! Mencoba restart..." "urgent" "rotating_light,sos"
-      /usr/sbin/sshd && notify "🔄 SSH Direstart" "SSH berhasil direstart." "high" "white_check_mark"
+      notify "🚨 SSH MATI!" "SSH crash! Restart..." "urgent" "rotating_light,sos"
+      /usr/sbin/sshd && notify "🔄 SSH Direstart" "SSH OK." "high" "white_check_mark"
     fi
   done
 }
@@ -201,8 +210,8 @@ nginx_watchdog() {
   while true; do
     sleep 60
     if ! pgrep nginx > /dev/null; then
-      notify "🚨 Nginx MATI!" "Nginx crash! Mencoba restart..." "urgent" "rotating_light"
-      nginx && notify "🔄 Nginx Direstart" "Nginx berhasil direstart." "high" "white_check_mark"
+      notify "🚨 Nginx MATI!" "Nginx crash! Restart..." "urgent" "rotating_light"
+      nginx && notify "🔄 Nginx Direstart" "Nginx OK." "high" "white_check_mark"
     fi
   done
 }
@@ -211,10 +220,10 @@ ollama_watchdog() {
   while true; do
     sleep 60
     if ! pgrep ollama > /dev/null; then
-      notify "🚨 Ollama MATI!" "Ollama crash! Mencoba restart..." "urgent" "robot_face,rotating_light"
+      notify "🚨 Ollama MATI!" "Ollama crash! Restart..." "urgent" "robot_face,rotating_light"
       ollama serve > /tmp/ollama.log 2>&1 &
       sleep 10
-      pgrep ollama > /dev/null && notify "🔄 Ollama Direstart" "Ollama berhasil direstart." "high" "robot_face,white_check_mark"
+      pgrep ollama > /dev/null && notify "🔄 Ollama Direstart" "Ollama OK." "high" "robot_face,white_check_mark"
     fi
   done
 }
@@ -224,33 +233,39 @@ ollama_watchdog() {
 # =============================================
 log "============================================="
 log "  Devculture VPS — Ubuntu 20.04"
-log "  Ports : 22 80 443 3000 8080 8888 11434"
-log "  ntfy  : $NTFY_TOPIC"
-log "  Model : $AUTO_PULL_MODEL (auto-pull)"
-log "  Start : $START_TIME"
+log "  Branch : Devculture"
+log "  Ports  : 22 80 443 3000 8080 8888 11434"
+log "  ntfy   : $NTFY_TOPIC"
+log "  Model  : $AUTO_PULL_MODEL (auto-pull/update)"
+log "  Start  : $START_TIME"
 log "============================================="
 
 echo "root:${ROOT_PASS}" | chpasswd 2>/dev/null || true
 
 notify "🚀 Devculture VPS Booting..." \
-  "Ubuntu 20.04 sedang startup...\n\nPorts: SSH(22) Nginx(80) HTTPS(443) 3000 8080 8888\nOllama model '$AUTO_PULL_MODEL' akan diunduh otomatis.\n\n📲 ntfy.sh/$NTFY_TOPIC\n🕐 $START_TIME" \
-  "default" "rocket,hourglass"
+  "Ubuntu 20.04 sedang startup...
+
+Ports: SSH(22) Nginx/Ollama(80) 443 3000 8080 8888
+Model '$AUTO_PULL_MODEL' akan diunduh/update otomatis.
+
+📲 ntfy.sh/$NTFY_TOPIC
+🕐 $START_TIME" "default" "rocket,hourglass"
 
 # 1. SSH
 /usr/sbin/sshd && log "✅ SSH started"
-notify "🔑 SSH Aktif" "SSH daemon berhasil start." "low" "key"
+notify "🔑 SSH Aktif" "SSH daemon start OK." "low" "key"
 
 # 2. Ollama
 log "🤖 Starting Ollama..."
 ollama serve > /tmp/ollama.log 2>&1 &
 sleep 3
-pgrep ollama > /dev/null && log "✅ Ollama started" || log "⚠️ Ollama belum ready"
+pgrep ollama > /dev/null && log "✅ Ollama started"
 
 # 3. Nginx
-nginx -t 2>&1 | tail -2 && nginx && log "✅ Nginx started"
-notify "🌐 Nginx Aktif" "Nginx proxy Ollama API & UI aktif di port 80." "low" "globe_with_meridians"
+nginx -t 2>&1 | tail -1 && nginx && log "✅ Nginx started"
+notify "🌐 Nginx Aktif" "Nginx proxy Ollama OK.\nAPI: /api/ | UI: /" "low" "globe_with_meridians"
 
-# 4. Placeholder ports 443, 3000, 8888
+# 4. Placeholder ports
 python3 - << 'PY' &
 import http.server, socketserver, threading, time
 class H(http.server.BaseHTTPRequestHandler):
@@ -264,7 +279,7 @@ time.sleep(86400 * 365)
 PY
 sleep 2
 
-# 5. Auto-pull model (background, tidak blokir startup)
+# 5. Auto-pull/update model (background)
 ollama_auto_pull &
 
 # 6. Bore tunnels
@@ -282,7 +297,7 @@ ollama_watchdog &
 monitor_loop    &
 
 # 8. Health check Railway (port 8080)
-log "✅ Health check server :8080"
+log "✅ Health check :8080"
 exec python3 -c "
 import http.server, socketserver
 class H(http.server.BaseHTTPRequestHandler):
